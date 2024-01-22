@@ -8,9 +8,10 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import wave
 import os
+# import noisereduce as nr
 
 # Load the trained model
-model = joblib.load('C:/Users/ITPKL/Desktop/pydev/nov_model_neww.pkl')
+model = joblib.load('C:/Users/ITPKL/Desktop/pydev/cek.pkl')
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()
@@ -67,6 +68,10 @@ label_dict = {1: 'OK', 0: 'Not OK'}
 # Function to read audio, transform to FFT, and process with the ML model
 def analyze_audio():
     audio_data, sample_rate = sf.read('recorded_audio.wav')
+
+    # Apply noise reduction
+    # reduced_noise = nr.reduce_noise(audio_clip=audio_data, noise_clip=noise_data)
+    
     if sample_rate != 44100:
         audio_data = sf.resample(audio_data, 44100)
     
