@@ -2,4 +2,5 @@ venv/
 data_guna/
 catndog/
 dataset/
+model/
 fft_magnitude_data.csv
