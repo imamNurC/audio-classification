@@ -11,7 +11,7 @@ import os
 # import noisereduce as nr
 
 # Load the trained model
-model = joblib.load('C:/Users/ITPKL/Desktop/pydev/cek.pkl')
+model = joblib.load('C:/Users/ITPKL/Desktop/pydev/model/cek.pkl')
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()
@@ -130,7 +130,7 @@ def start_recording():
     FORMAT = pyaudio.paInt16
     CHANNELS = 1
     RATE = 44100
-    RECORD_SECONDS = 4
+    RECORD_SECONDS = 1
     WAVE_OUTPUT_FILENAME = "recorded_audio.wav"
 
     p = pyaudio.PyAudio()
