@@ -4,3 +4,6 @@ catndog/
 dataset/
 model/
 fft_magnitude_data.csv
+Audio_CCW/
+Audio_CW/
+ccw/
