@@ -216,12 +216,16 @@ def start_recording():
     stream.close()
     p.terminate()
 
-    wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')   
-    wf.setnchannels(CHANNELS)
-    wf.setsampwidth(p.get_sample_size(FORMAT))
-    wf.setframerate(RATE)
-    wf.writeframes(b''.join(frames))
-    wf.close()
+    # wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')   
+    # wf.setnchannels(CHANNELS)
+    # wf.setsampwidth(p.get_sample_size(FORMAT))
+    # wf.setframerate(RATE)
+    # wf.writeframes(b''.join(frames))
+    # wf.close()
+    audio_data = np.frombuffer(b''.join(frames), dtype=np.int16)
+
+    # Panggil fungsi proses_file_audio dengan data audio yang baru direkam
+    proses_file_audio(audio_data)
 
     # audio yang di rekam masuk kedalam proses keputusan
     proses_file_audio(WAVE_OUTPUT_FILENAME)  
