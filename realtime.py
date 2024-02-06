@@ -7,22 +7,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import wave
+import pandas as pd
+from scipy.io import wavfile
 import os
-# import noisereduce as nr
+import librosa
 
-# Load the trained model
-model = joblib.load('C:/Users/ITPKL/Desktop/pydev/model20240130.pkl')
-
-# Initialize PyAudio
-audio = pyaudio.PyAudio()
-
-# Create a stream to capture audio from the microphone
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 44100
-CHUNK = 1024
-stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
-
+# os.remove('recorded_audio.wav')
 # Create a new tkinter window
 window = tk.Tk()
 window.title("Real-time Audio Judgement")
@@ -61,45 +51,115 @@ canvas = FigureCanvasTkAgg(fig, master=window)
 canvas.draw()
 canvas.get_tk_widget().pack()
 
-# Define the labels
-label_dict = {1: 'OK', 0: 'Not OK'}
+# Define a function to read WAV files and convert to FFT
+def read_wav_file(file_path, fft_length=1024):
+    try:
+        sample_rate, audio = wavfile.read(file_path)
+        if len(audio) == 0:
+            return None
+        return np.fft.fft(audio)[:fft_length]
+    except Exception as e:
+        print(f"Error reading WAV file: {file_path}")
+        print(f"Error message: {str(e)}")
+        return None
+
+def dframe(fmd, pm):
+    # Create a DataFrame with the magnitude of the FFT outputs and numerical labels
+    fft_magnitude_df = pd.DataFrame(fmd)
+    mask_df = pd.DataFrame(pm)    
+
+    return fft_magnitude_df, mask_df
+
+    
+
+# Process a single WAV file
+def proses_file_audio(file_path, fft_length=1024):
+    fft_magnitude_data = []
+    masks = []
+    
+    # masuk fungsi baca file untuk mengembalikan dalam bentuk data fft 
+    fft = read_wav_file(file_path, fft_length)
+    if fft is not None:
+        fft_magnitude = np.abs(fft)
+        mask = np.ones_like(fft_magnitude)
+        mask[len(fft_magnitude):] = 0
+        fft_magnitude_padded = np.pad(fft_magnitude, (0, fft_length - len(fft_magnitude)))
+        mask_padded = np.pad(mask, (0, fft_length - len(mask)))
+        
+        # Append the padded FFT magnitude and mask to their respective lists
+        fft_magnitude_data.append(fft_magnitude_padded)
+        masks.append(mask_padded)
+
+    # Initialize an empty list to store the padded masks
+    padded_masks = [np.pad(mask, (0, fft_length - len(mask))) for mask in masks]
+
+    # Find the maximum length among all padded masks
+    max_length = max(len(mask) for mask in padded_masks)
+
+    # Pad each mask to the maximum length
+    padded_masks = [np.pad(mask, (0, max_length - len(mask))) for mask in padded_masks]
+
+    # Convert the lists to numpy arrays
+    fft_magnitude_data = np.array(fft_magnitude_data)
+    padded_masks = np.array(padded_masks)
+
+    # Print the shapes of the resulting arrays
+    print("FFT Magnitude Data Shape:", fft_magnitude_data.shape)
+    print("Masks Shape:", padded_masks.shape)
+
+    
+    hasil_magnitude , hasil_padded = dframe(fft_magnitude_data, padded_masks)
+    
+    # belum terbentuk numpy array dan masih dalam bentuk dataframe
+    print('===================================================================')
+   
+
+    # import file csv
+    X_train = pd.read_csv('exported/X_train.csv') 
+    y_train =pd.read_csv('exported/y_train.csv')
+    X_coba = pd.read_csv('exported/X_coba.csv')
+    y_coba = pd.read_csv('exported/y_coba.csv') # ubah disini
+    X_train_resampled = pd.read_csv('exported/X_train_resampled.csv')
+    y_train_resampled = pd.read_csv('exported/y_train_resampled.csv')
+
+    from sklearn.preprocessing import StandardScaler
+    sc_X = StandardScaler()
+
+    X_train_resampled = sc_X.fit_transform(X_train_resampled)
+    X_coba = sc_X.transform(X_coba)
+    scaled_input = sc_X.transform(hasil_magnitude)
 
 
-# Function to read audio, transform to FFT, and process with the ML model
-def analyze_audio():
+
+    # Load the model
+    model = joblib.load('C:/Users/ITPKL/Desktop/production/model20240130.pkl')
+
+    # Make predictions
+    y_pred = model.predict(scaled_input) # ganti disini untuk melihat test
+
+
     audio_data, sample_rate = sf.read('recorded_audio.wav')
-
-    # Apply noise reduction
-    # reduced_noise = nr.reduce_noise(audio_clip=audio_data, noise_clip=noise_data)
     
+    # resample if necessary
     if sample_rate != 44100:
-        audio_data = sf.resample(audio_data, 44100)
-    
-    # Mengubah audio menjadi mono jika perlu
+        audio_data = librosa.resample(audio_data, 44100)
+
+    # convert to mono if necessary
     if len(audio_data.shape) > 1:
         audio_data = np.mean(audio_data, axis=1)
-    
-    # Normalisasi data audio
+
+    # normalize the audio data
     audio_data = audio_data / np.max(np.abs(audio_data))
-    # ======================================================
-    # audio_data = np.frombuffer(stream.read(RATE*5), dtype=np.int16)  # Record for 1 second
-    # fft_data = np.abs(np.fft.fft(audio_data))[:RATE // 2]
-    # ===========================================
-    # Memisahkan audio menjadi chunk-chunk kecil
-    chunk_size = 2048  # Increase chunk_size to match the expected number of features
+
+    # split the audio into chunks
+    chunk_size = 1024 # Increase chunk_size to match the expected number of features
     num_chunks = len(audio_data) // chunk_size
     chunks = np.array_split(audio_data[:num_chunks * chunk_size], num_chunks)
-    
-    # Memproses setiap chunk dan membuat prediksi
-    for chunk in chunks:
-        fft_data = np.abs(np.fft.fft(chunk))[:chunk_size // 2]
-        
-        # Mengubah format data FFT sesuai dengan model yang dilatih
-        input_data = fft_data.reshape(1, -1)  # Karena model membutuhkan input 2D
-        
-        # Menggunakan model untuk membuat prediksi
-        prediction = model.predict(input_data)
 
+    for chunk in chunks:
+        fft_data = np.abs(np.fft.fft(chunk))[:chunk_size //2 ]
+    
+    
     # Plot the audio data
     ax1.clear()
     ax1.plot(audio_data)
@@ -112,17 +172,14 @@ def analyze_audio():
     
     # Update the plots
     canvas.draw()
+
+    if y_pred == 0:
+        print("Prediksi model: NG")
+    else:
+        print("Prediksi model: OK")
     
-    # Reshape the FFT data for prediction (adjust the shape according to your model)
-    # input_data = fft_data[:1024].reshape(1, -1)  # Use only the first 1024 features
-    # print (input_data)
-    # # Use the loaded model for prediction
-    # prediction = model.predict(input_data)
-    # print(prediction)
-    # print("Model prediction:", label_dict[prediction[0]])
-    NG(prediction)
-    OK(prediction)
-    
+    NG(y_pred)
+    OK(y_pred)  
 
 # Function untuk memulai proses rekaman
 def start_recording():
@@ -141,6 +198,8 @@ def start_recording():
                     input=True,
                     frames_per_buffer=CHUNK)
 
+
+
     print("* Recording started *")
 
     frames = []
@@ -151,29 +210,21 @@ def start_recording():
 
     print("* Recording finished *")
 
+    print(stream)
+
     stream.stop_stream()
     stream.close()
     p.terminate()
 
-    wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
+    wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')   
     wf.setnchannels(CHANNELS)
     wf.setsampwidth(p.get_sample_size(FORMAT))
     wf.setframerate(RATE)
     wf.writeframes(b''.join(frames))
     wf.close()
 
-    # Memproses audio yang direkam
-    analyze_audio()
-
-    # Menampilkan visualisasi gelombang audio
-    # audio_data, sample_rate = sf.read('recorded_audio.wav')
-    # plt.figure(figsize=(10, 4))
-    # plt.plot(audio_data)
-    # plt.xlabel('Sample')
-    # plt.ylabel('Amplitude')
-    # plt.title('Waveform of Recorded Audio')
-    # plt.show()
-    # os.remove('recorded_audio.wav')
+    # audio yang di rekam masuk kedalam proses keputusan
+    proses_file_audio(WAVE_OUTPUT_FILENAME)  
 
 # Create the UI
 record_button = tk.Button(window, text="Start Recording", command=start_recording, height=3, width=20, bg="white")
