@@ -10,6 +10,7 @@ import wave
 import pandas as pd
 from scipy.io import wavfile
 import os
+import seaborn as sns
 import librosa
 
 # os.remove('recorded_audio.wav')
@@ -57,7 +58,8 @@ def read_wav_file(file_path, fft_length=1024):
         sample_rate, audio = wavfile.read(file_path)
         if len(audio) == 0:
             return None
-        return np.fft.fft(audio)[:fft_length]
+        fft = np.fft.fft(audio)[:fft_length]
+        return fft
     except Exception as e:
         print(f"Error reading WAV file: {file_path}")
         print(f"Error message: {str(e)}")
@@ -126,9 +128,8 @@ def proses_file_audio(file_path, fft_length=1024):
     sc_X = StandardScaler()
 
     X_train_resampled = sc_X.fit_transform(X_train_resampled)
-    X_coba = sc_X.transform(X_coba)
+    # X_coba = sc_X.transform(X_coba)
     scaled_input = sc_X.transform(hasil_magnitude)
-
 
 
     # Load the model
@@ -136,11 +137,13 @@ def proses_file_audio(file_path, fft_length=1024):
 
     # Make predictions
     y_pred = model.predict(scaled_input) # ganti disini untuk melihat test
+    
+    # y_pred_coba = model.predict(X_coba) 
 
-
-    audio_data, sample_rate = sf.read('recorded_audio.wav')
+    sample_rate,audio_data = wavfile.read('recorded_audio.wav')
     
     # resample if necessary
+    # audio_data = fft
     if sample_rate != 44100:
         audio_data = librosa.resample(audio_data, 44100)
 
@@ -150,14 +153,15 @@ def proses_file_audio(file_path, fft_length=1024):
 
     # normalize the audio data
     audio_data = audio_data / np.max(np.abs(audio_data))
+    audio_data = audio_data[10000:-10000]
+    
+    # # split the audio into chunks
+    # chunk_size = 1024 # Increase chunk_size to match the expected number of features
+    # num_chunks = len(audio_data) // chunk_size
+    # chunks = np.array_split(audio_data[:num_chunks * chunk_size], num_chunks)
 
-    # split the audio into chunks
-    chunk_size = 1024 # Increase chunk_size to match the expected number of features
-    num_chunks = len(audio_data) // chunk_size
-    chunks = np.array_split(audio_data[:num_chunks * chunk_size], num_chunks)
-
-    for chunk in chunks:
-        fft_data = np.abs(np.fft.fft(chunk))[:chunk_size //2 ]
+    # for chunk in chunks:
+    #     fft_data = np.abs(np.fft.fft(chunk))[:chunk_size //2 ]
     
     
     # Plot the audio data
@@ -167,7 +171,7 @@ def proses_file_audio(file_path, fft_length=1024):
     
     # Plot the FFT data
     ax2.clear()
-    ax2.plot(fft_data)
+    ax2.plot(fft_magnitude)
     ax2.set_title('FFT data')
     
     # Update the plots
@@ -178,6 +182,21 @@ def proses_file_audio(file_path, fft_length=1024):
     else:
         print("Prediksi model: OK")
     
+
+    # from sklearn.metrics import accuracy_score
+
+    # accuracy = accuracy_score(y_coba, y_pred_coba)
+
+    # print("Accuracy train:", accuracy)
+
+    # from sklearn.metrics import classification_report, confusion_matrix
+
+    # print(classification_report(y_coba,y_pred_coba,zero_division=1))
+    # cm = confusion_matrix(y_coba, y_pred_coba)
+
+    # sns.heatmap(cm, annot=True, yticklabels=True,cbar=True)
+
+
     NG(y_pred)
     OK(y_pred)  
 
@@ -216,7 +235,10 @@ def start_recording():
     stream.close()
     p.terminate()
 
-    wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')   
+
+
+    wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
+    
     wf.setnchannels(CHANNELS)
     wf.setsampwidth(p.get_sample_size(FORMAT))
     wf.setframerate(RATE)
