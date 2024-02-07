@@ -246,7 +246,7 @@ def start_recording():
     wf.close()
 
     # audio yang di rekam masuk kedalam proses keputusan
-    proses_file_audio(WAVE_OUTPUT_FILENAME)  
+    # proses_file_audio(WAVE_OUTPUT_FILENAME)  
 
 # Create the UI
 record_button = tk.Button(window, text="Start Recording", command=start_recording, height=3, width=20, bg="white")
